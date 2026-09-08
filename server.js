@@ -85,9 +85,33 @@ app.post('/tasks', async (req, res) => {
 //     RETURNING *
 // - Si "RETURNING *" no devuelve filas, la tarea no existia -> responder 404
 app.put('/tasks/:id', async (req, res) => {
-    // Tu codigo aca
-    res.status(501).json({ error: 'Not implemented yet' })
-})
+    const { id } = req.params;
+    const { title, description, status, dueDate } = req.body;
+
+    try {
+        const result = await pool.query(
+            `UPDATE tasks
+             SET title = COALESCE($1, title),
+                 description = COALESCE($2, description),
+                 status = COALESCE($3, status),
+                 due_date = COALESCE($4, due_date),
+                 updated_at = NOW()
+             WHERE id = $5
+             RETURNING *`,
+            [title, description, status, dueDate, id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        res.status(200).json(result.rows[0]);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 // TODO DELETE /tasks/:id - Eliminar una tarea
 // Pistas:
@@ -95,9 +119,27 @@ app.put('/tasks/:id', async (req, res) => {
 // - Si no devuelve filas, la tarea no existia -> responder 404
 // - Si borra correctamente, responder 204 sin body
 app.delete('/tasks/:id', async (req, res) => {
-    // Tu codigo aca
-    res.status(501).json({ error: 'Not implemented yet' })
-})
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query(
+            `DELETE FROM tasks
+             WHERE id = $1
+             RETURNING *`,
+            [id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        res.status(204).end();
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 app.listen(PORT, () => {
     console.log(`🚀 Server is running on http://localhost:${PORT}`)
